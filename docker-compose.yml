@@ -1,0 +1,91 @@
+version: "3"
+
+services:
+  mysql-major-service:
+    image: mysql:latest
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MYSQL_DATABASE: ms_major
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - 5000:3306
+    volumes:
+     - major_service_db:/var/lib/mysqldata/major-service
+  mysql-student-service:
+    image: mysql:latest
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MYSQL_DATABASE: ms_student
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - 5001:3306
+    volumes:
+     - student_service_db:/var/lib/mysqldata/student-service
+  service-discovery:
+    image: duckervn/ms-service-discovery:latest
+    environment:
+      SERVER_HOST: service-discovery
+      SERVER_PORT: 3000
+    ports:
+      - 3000:3000
+    build:
+      context: "./service-discovery"
+      dockerfile: "Dockerfile"
+  major-service:
+    image: duckervn/ms-major-service:latest
+    environment:
+      SERVER_PORT: 3001
+      SERVICE_DISCOVERY_HOST: service-discovery
+      SERVICE_DISCOVERY_PORT: 3000
+      MYSQL_HOST: mysql-major-service
+      MYSQL_DATABASE: ms_major
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_PORT: 3306
+    ports:
+      - 3001:3001
+    build:
+      context: "./major-service"
+      dockerfile: "Dockerfile"
+    depends_on:
+      - mysql_major_service
+  student-service:
+    image: duckervn/ms-student-service:latest
+    environment:
+      SERVER_PORT: 3002
+      SERVICE_DISCOVERY_HOST: service-discovery
+      SERVICE_DISCOVERY_PORT: 3000
+      MYSQL_HOST: mysql-student-service
+      MYSQL_DATABASE: ms_student
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_PORT: 3306
+    ports:
+      - 3002:3002
+    build:
+      context: "./student-service"
+      dockerfile: "Dockerfile"
+    depends_on:
+      - mysql_student_service
+      - major-service
+  gateway-service:
+    image: duckervn/ms-gateway-service:latest
+    environment:
+      SERVER_PORT: 4000
+      SERVICE_DISCOVERY_HOST: service-discovery
+      SERVICE_DISCOVERY_PORT: 3000
+      MAJOR_SERVICE_HOST: major-service
+      MAJOR_SERVICE_PORT: 3001
+      STUDENT_SERVICE_HOST: student-service
+      STUDENT_SERVICE_PORT: 3002
+    ports:
+      - 4000:4000
+    build:
+      context: "./gateway-service"
+      dockerfile: "Dockerfile"
+    depends_on:
+      - major-service
+      - student-service
+volumes:
+  major_service_db:
+  student_service_db:
